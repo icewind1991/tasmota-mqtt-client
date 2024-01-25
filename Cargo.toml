@@ -1,0 +1,9 @@
+[package]
+name = "tasmota-mqtt-client"
+version = "0.1.0"
+edition = "2021"
+
+rust-version = "1.64.0"
+
+[dependencies]
+rumqttc = { version = "0.23.0", features = ["use-rustls"] }
