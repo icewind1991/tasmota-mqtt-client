@@ -1,4 +1,5 @@
 use clap::Parser;
+use hex_fmt::HexFmt;
 pub use tasmota_mqtt_client::{Result, TasmotaClient};
 
 #[derive(Debug, Parser)]
@@ -23,7 +24,7 @@ async fn main() -> Result<()> {
         .download_config(&args.device, &args.device_password)
         .await?;
 
-    println!("downloaded {}", file.name);
+    println!("downloaded {} with hash {}", file.name, HexFmt(file.md5));
     if let Err(e) = std::fs::write(&file.name, file.data) {
         eprintln!("Error while saving {}: {:#}", file.name, e);
     }

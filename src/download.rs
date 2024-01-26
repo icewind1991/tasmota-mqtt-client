@@ -27,6 +27,7 @@ struct DownloadState {
 pub struct DownloadedFile {
     pub name: String,
     pub data: Bytes,
+    pub md5: [u8; 16],
 }
 
 #[derive(Deserialize, Debug)]
@@ -131,5 +132,6 @@ pub async fn download_config(
     Ok(DownloadedFile {
         name: state.name,
         data: state.data.freeze(),
+        md5: state.md5,
     })
 }
