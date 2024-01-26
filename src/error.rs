@@ -14,6 +14,10 @@ pub enum Error {
     JsonPayload(serde_json::Error),
     #[error(transparent)]
     Download(#[from] DownloadError),
+    #[error("Malformed reply received from device for {0}: {1}")]
+    MalformedReply(&'static str, String),
+    #[error("Timeout while waiting for reply from device")]
+    Timeout,
 }
 
 impl From<serde_json::Error> for Error {
@@ -28,6 +32,8 @@ pub enum MqttError {
     Client(ClientError),
     #[error("transparent")]
     Connection(ConnectionError),
+    #[error("connection closed unexpectedly")]
+    Eof,
 }
 
 impl From<MqttError> for Error {

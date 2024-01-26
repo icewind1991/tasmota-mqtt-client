@@ -2,6 +2,7 @@ use clap::Parser;
 use std::pin::pin;
 use tasmota_mqtt_client::DeviceUpdate;
 pub use tasmota_mqtt_client::{Result, TasmotaClient};
+use tokio::join;
 use tokio_stream::StreamExt;
 
 #[derive(Debug, Parser)]
@@ -26,7 +27,8 @@ async fn main() -> Result<()> {
     while let Some(update) = discovery.next().await {
         match update {
             DeviceUpdate::Added(device) => {
-                println!("discovered {device}");
+                let (ip, name) = join!(client.device_ip(&device), client.device_name(&device));
+                println!("discovered {}({device}) with ip {}", name?, ip?);
             }
             DeviceUpdate::Removed(device) => {
                 println!("{device} has gone offline");
