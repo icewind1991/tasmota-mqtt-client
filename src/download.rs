@@ -4,7 +4,6 @@ use crate::Result;
 use bytes::{Bytes, BytesMut};
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Serialize)]
 struct SendDownloadPayload<'a> {
@@ -28,6 +27,18 @@ struct DownloadState {
 pub struct DownloadedFile {
     pub name: String,
     pub data: Bytes,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct DownloadResponse<'a> {
+    file_download: Option<&'a str>,
+    file: Option<&'a str>,
+    size: Option<u32>,
+    id: Option<u32>,
+    #[serde(rename = "Type")]
+    ty: Option<u8>,
+    md5: Option<&'a str>,
 }
 
 pub async fn download_config(
@@ -55,44 +66,48 @@ pub async fn download_config(
     loop {
         let msg = rx.recv().await.unwrap();
 
-        if let Ok(body) = serde_json::from_slice::<Value>(msg.payload.as_ref()) {
-            if let Some(status) = body.get("FileDownload") {
-                match status.as_str() {
-                    Some("Started") => {
+        if let Ok(response) = serde_json::from_slice::<DownloadResponse>(msg.payload.as_ref()) {
+            if let Some(status) = response.file_download {
+                match status {
+                    "Started" => {
+                        // don't request another chunk, another response is on the way already
                         continue;
                     }
-                    Some("Aborted") => {
+                    "Aborted" => {
                         return Err(DownloadError::DownloadAborted.into());
                     }
-                    Some("Error 1") => {
+                    "Error 1" => {
                         return Err(DownloadError::InvalidPassword.into());
                     }
-                    Some("Error 2") => {
+                    "Error 2" => {
                         return Err(DownloadError::BadChunkSize.into());
                     }
-                    Some("Error 3") => {
+                    "Error 3" => {
                         return Err(DownloadError::InvalidFileType.into());
                     }
-                    Some("Done") => {
+                    "Done" => {
                         break;
                     }
                     _ => {}
                 }
             }
-            if let Some(name) = body.get("File").and_then(|v| v.as_str()) {
+            if let Some(name) = response.file {
                 state.name = name.to_string();
             }
-            if let Some(size) = body.get("Size").and_then(|v| v.as_u64()) {
-                state.size = size as u32;
+            if let Some(size) = response.size {
+                state.size = size;
             }
-            if let Some(id) = body.get("Size").and_then(|v| v.as_u64()) {
-                state.id = id as u32;
+            if let Some(id) = response.id {
+                state.id = id;
             }
-            if let Some(ty) = body.get("Type").and_then(|v| v.as_u64()) {
-                state.ty = ty as u8;
+            if let Some(ty) = response.ty {
+                state.ty = ty;
             }
-            if let Some(md5) = body.get("Md5").and_then(|v| v.as_str()) {
+            if let Some(md5) = response.md5 {
                 hex::decode_to_slice(md5, &mut state.md5[..]).map_err(DownloadError::from)?;
+
+                // don't request another chunk
+                continue;
             }
         } else {
             state.data.extend(msg.payload);
