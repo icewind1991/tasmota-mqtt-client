@@ -64,7 +64,7 @@ impl TasmotaClient {
                         let _ = tx.send(DeviceUpdate::Added(device.into()));
                     }
                     "Offline" => {
-                        edit_devices.lock().unwrap().remove(device.into());
+                        edit_devices.lock().unwrap().remove(device);
                         let _ = tx.send(DeviceUpdate::Removed(device.into()));
                     }
                     _ => {}
@@ -103,16 +103,14 @@ impl TasmotaClient {
     }
 
     /// Subscribe to device discovery, receiving a [`DeviceUpdate`] whenever a device comes online or goes offline
+    ///
+    /// This will include an update for any device that is known at the time of calling
     pub fn devices(&self) -> impl Stream<Item = DeviceUpdate> {
         let current = self.current_devices();
         let rx = self.device_update.subscribe();
 
-        tokio_stream::iter(
-            current
-                .into_iter()
-                .map(|device| DeviceUpdate::Added(device)),
-        )
-        .chain(BroadcastStream::new(rx).filter_map(Result::ok))
+        tokio_stream::iter(current.into_iter().map(DeviceUpdate::Added))
+            .chain(BroadcastStream::new(rx).filter_map(Result::ok))
     }
 
     /// Send a command that expect a single reply message

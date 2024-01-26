@@ -12,6 +12,7 @@ use tracing::{debug, error};
 
 pub struct MqttHelper {
     client: AsyncClient,
+    #[allow(clippy::type_complexity)]
     listeners: Arc<Mutex<Vec<(String, Sender<Publish>)>>>,
 }
 
