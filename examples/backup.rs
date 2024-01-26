@@ -19,7 +19,8 @@ async fn main() -> Result<()> {
         &args.hostname,
         args.port,
         Some((&args.username, &args.password)),
-    )?;
+    )
+    .await?;
     let file = client
         .download_config(&args.device, &args.device_password)
         .await?;
