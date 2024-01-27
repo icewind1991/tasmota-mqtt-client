@@ -91,6 +91,9 @@ pub async fn download_config(
                     "Done" => {
                         break;
                     }
+                    _ if status.starts_with("Error") => {
+                        return Err(DownloadError::Unknown(status.into()).into());
+                    }
                     _ => {}
                 }
             }

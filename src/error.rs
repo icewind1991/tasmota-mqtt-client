@@ -65,7 +65,7 @@ pub enum DownloadError {
     #[error("Invalid file type")]
     InvalidFileType,
     #[error("Received error code: {0}")]
-    Unknown(u32),
+    Unknown(String),
     #[error("Mismatched payload length, expected {0} got {1}")]
     MismatchedLength(u32, u32),
     #[error("Received an invalid md5 hash")]
