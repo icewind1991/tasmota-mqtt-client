@@ -19,7 +19,6 @@
     utils.lib.eachDefaultSystem (system: let
       overlays = [
         (import rust-overlay)
-        (import ./overlay.nix)
       ];
       pkgs = (import nixpkgs) {
         inherit system overlays;
@@ -42,7 +41,8 @@
       };
 
       nearskOpt = {
-        inherit (pkgs.tasmota-mqtt-client) src name;
+        src = sourceByRegex ./. ["Cargo.*" "(src)(/.*)?"];
+        name = "tasmota-mqtt-client";
       };
     in rec {
       packages = rec {
@@ -63,8 +63,6 @@
           // {
             mode = "check";
           });
-        tasmota-mqtt-client = pkgs.tasmota-mqtt-client;
-        default = tasmota-mqtt-client;
       };
 
       devShells = let
