@@ -4,6 +4,7 @@ use crate::Result;
 use bytes::{Bytes, BytesMut};
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 #[derive(Serialize)]
 struct SendDownloadPayload<'a> {
@@ -68,6 +69,7 @@ pub async fn download_config(
         let msg = rx.recv().await.unwrap();
 
         if let Ok(response) = serde_json::from_slice::<DownloadResponse>(msg.payload.as_ref()) {
+            debug!(message = ?response, "processing download status message");
             if let Some(status) = response.file_download {
                 match status {
                     "Started" => {
@@ -111,6 +113,7 @@ pub async fn download_config(
                 continue;
             }
         } else {
+            debug!(size = msg.payload.len(), "processing download chunk");
             state.data.extend(msg.payload);
         }
 

@@ -11,6 +11,7 @@ use rumqttc::MqttOptions;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::BTreeSet;
+use std::fmt::Debug;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -20,6 +21,7 @@ use tokio::sync::broadcast::{channel, Sender};
 use tokio::time::timeout;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
+use tracing::debug;
 
 pub struct TasmotaClient {
     mqtt: MqttHelper,
@@ -58,6 +60,11 @@ impl TasmotaClient {
                     continue;
                 };
 
+                debug!(
+                    message = payload,
+                    device = device,
+                    "processing discovery message"
+                );
                 match payload {
                     "Online" => {
                         if edit_devices.lock().unwrap().insert(device.into()) {
@@ -84,7 +91,7 @@ impl TasmotaClient {
 
     /// Set the timeout used for one-show commands
     ///
-    /// The default timeout is 1 seccond
+    /// The default timeout is 1 second
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
     }
@@ -92,6 +99,7 @@ impl TasmotaClient {
     /// Download the config backup from a device
     ///
     /// The password is the mqtt password used by the device, which might be different from the mqtt password used by this client
+    #[tracing::instrument(skip(self))]
     pub async fn download_config(&self, client: &str, password: &str) -> Result<DownloadedFile> {
         download_config(&self.mqtt, client, password).await
     }
@@ -116,7 +124,8 @@ impl TasmotaClient {
     }
 
     /// Send a command that expect a single reply message
-    pub async fn command<T: DeserializeOwned>(
+    #[tracing::instrument(skip(self))]
+    pub async fn command<T: DeserializeOwned + Debug>(
         &self,
         device: &str,
         command: &str,
@@ -142,8 +151,10 @@ impl TasmotaClient {
             .map_err(|_| Error::Timeout)?
     }
 
+    /// Get the ip address for the device
+    #[tracing::instrument(skip(self))]
     pub async fn device_ip(&self, device: &str) -> Result<IpAddr> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Debug)]
         struct IpAddressResponse {
             #[serde(rename = "IPAddress1")]
             ip_address_1: String,
@@ -164,8 +175,10 @@ impl TasmotaClient {
         Ok(ip)
     }
 
+    /// Get the name for the device
+    #[tracing::instrument(skip(self))]
     pub async fn device_name(&self, device: &str) -> Result<String> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Debug)]
         struct NameResponse {
             #[serde(rename = "DeviceName")]
             device_name: String,
