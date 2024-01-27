@@ -60,12 +60,14 @@ impl TasmotaClient {
 
                 match payload {
                     "Online" => {
-                        edit_devices.lock().unwrap().insert(device.into());
-                        let _ = tx.send(DeviceUpdate::Added(device.into()));
+                        if edit_devices.lock().unwrap().insert(device.into()) {
+                            let _ = tx.send(DeviceUpdate::Added(device.into()));
+                        }
                     }
                     "Offline" => {
-                        edit_devices.lock().unwrap().remove(device);
-                        let _ = tx.send(DeviceUpdate::Removed(device.into()));
+                        if edit_devices.lock().unwrap().remove(device) {
+                            let _ = tx.send(DeviceUpdate::Removed(device.into()));
+                        }
                     }
                     _ => {}
                 }
