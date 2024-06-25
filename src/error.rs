@@ -72,6 +72,8 @@ pub enum DownloadError {
     InvalidHash,
     #[error("Received data doesn't match the expected md5 hash, expected {0:x?} got {1:x?}")]
     MismatchedHash([u8; 16], [u8; 16]),
+    #[error("Device has disconnected during the download")]
+    Gone,
 }
 
 impl From<FromHexError> for DownloadError {

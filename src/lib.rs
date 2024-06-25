@@ -101,7 +101,7 @@ impl TasmotaClient {
     /// The password is the mqtt password used by the device, which might be different from the mqtt password used by this client
     #[tracing::instrument(skip(self))]
     pub async fn download_config(&self, client: &str, password: &str) -> Result<DownloadedFile> {
-        download_config(&self.mqtt, client, password).await
+        download_config(&self.mqtt, client, password, self.device_update.subscribe()).await
     }
 
     /// Get the list of known devices at this point in time

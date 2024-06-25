@@ -1,9 +1,11 @@
 use crate::error::DownloadError;
 use crate::mqtt::MqttHelper;
-use crate::Result;
+use crate::{DeviceUpdate, Result};
 use bytes::{Bytes, BytesMut};
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
+use tokio::select;
+use tokio::sync::broadcast::Receiver;
 use tracing::debug;
 
 #[derive(Serialize)]
@@ -47,6 +49,7 @@ pub async fn download_config(
     mqtt: &MqttHelper,
     client: &str,
     password: &str,
+    mut device_update: Receiver<DeviceUpdate>,
 ) -> Result<DownloadedFile> {
     let mut rx = mqtt
         .subscribe(format!("stat/{client}/FILEDOWNLOAD"))
@@ -66,7 +69,19 @@ pub async fn download_config(
     let mut state = DownloadState::default();
 
     loop {
-        let msg = rx.recv().await.unwrap();
+        let msg = select! {
+            msg = rx.recv() => {
+                msg.unwrap()
+            }
+            discovery = device_update.recv() => {
+                if let Ok(DeviceUpdate::Removed(device)) = discovery {
+                    if device.as_str() == client {
+                        return Err(DownloadError::Gone.into());
+                    }
+                }
+                continue;
+            }
+        };
 
         if let Ok(response) = serde_json::from_slice::<DownloadResponse>(msg.payload.as_ref()) {
             debug!(message = ?response, "processing download status message");
