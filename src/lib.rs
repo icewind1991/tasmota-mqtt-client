@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod download;
 mod error;
 mod mqtt;
@@ -23,6 +25,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tracing::debug;
 
+/// A client for interacting with tasmota devices over MQTT
 pub struct TasmotaClient {
     mqtt: MqttHelper,
     known_devices: Arc<Mutex<BTreeSet<String>>>,
@@ -30,13 +33,35 @@ pub struct TasmotaClient {
     timeout: Duration,
 }
 
+/// A device has been added or removed.
+///
+/// See also [`TasmotaClient::devices`].
 #[derive(Debug, Clone)]
 pub enum DeviceUpdate {
+    /// A new device has been discovered, or a previously offline device has come back
     Added(String),
+    /// A previously discovered device has gone offline
     Removed(String),
 }
 
 impl TasmotaClient {
+    /// Connect to an MQTT server to allow access to tasmota devices connected to the same server
+    ///
+    /// # Usage
+    ///
+    /// ```rust,no_run
+    /// # use tasmota_mqtt_client::{Result, TasmotaClient};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let client = TasmotaClient::connect(
+    ///     "mqtt.example.com",
+    ///     1883,
+    ///     Some(("mqtt_username", "mqtt_password")),
+    /// ).await?;
+    /// #   Ok(())
+    /// # }
+    /// ```
+    ///
     pub async fn connect(host: &str, port: u16, credentials: Option<(&str, &str)>) -> Result<Self> {
         let mut mqtt_opts = MqttOptions::new("tasmota-client", host, port);
         if let Some((username, password)) = credentials {
@@ -99,6 +124,28 @@ impl TasmotaClient {
     /// Download the config backup from a device
     ///
     /// The password is the mqtt password used by the device, which might be different from the mqtt password used by this client
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use std::pin::pin;
+    /// # use tasmota_mqtt_client::{DeviceUpdate, Result, TasmotaClient};
+    /// # use tokio::join;
+    /// # use tokio_stream::StreamExt;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    ///     # let client = TasmotaClient::connect(
+    ///     #     "mqtt.example.com",
+    ///     #     1883,
+    ///     #     Some(("mqtt_username", "mqtt_password")),
+    ///     # ).await?;
+    /// // let client: TasmotaClient = ...
+    /// let download = client.download_config("tasmota_device", "tasmota_device_mqtt_password").await?;
+    /// println!("downloaded config file {} of {} bytes", download.name, download.data.len());
+    ///     # Ok(())
+    /// # }
+    /// ```
     #[tracing::instrument(skip(self))]
     pub async fn download_config(&self, client: &str, password: &str) -> Result<DownloadedFile> {
         download_config(&self.mqtt, client, password, self.device_update.subscribe()).await
@@ -107,7 +154,9 @@ impl TasmotaClient {
     /// Get the list of known devices at this point in time
     ///
     /// Due to the asynchronous nature of discovery, calling this directly after creating the client
-    /// will be unlikely to return all live devices
+    /// will be unlikely to return all live devices.
+    ///
+    /// Use [`Self::devices`] if you need to know all live devices.
     pub fn current_devices(&self) -> Vec<String> {
         self.known_devices.lock().unwrap().iter().cloned().collect()
     }
@@ -115,6 +164,38 @@ impl TasmotaClient {
     /// Subscribe to device discovery, receiving a [`DeviceUpdate`] whenever a device comes online or goes offline
     ///
     /// This will include an update for any device that is known at the time of calling
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use std::pin::pin;
+    /// # use tasmota_mqtt_client::{DeviceUpdate, Result, TasmotaClient};
+    /// # use tokio::join;
+    /// # use tokio_stream::StreamExt;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    ///     # let client = TasmotaClient::connect(
+    ///     #     "mqtt.example.com",
+    ///     #     1883,
+    ///     #     Some(("mqtt_username", "mqtt_password")),
+    ///     # ).await?;
+    /// // let client: TasmotaClient = ...
+    /// let mut discovery = pin!(client.devices());
+    /// while let Some(update) = discovery.next().await {
+    ///     match update {
+    ///         DeviceUpdate::Added(device) => {
+    ///             let (ip, name) = join!(client.device_ip(&device), client.device_name(&device));
+    ///             println!("discovered {}({device}) with ip {}", name?, ip?);
+    ///         }
+    ///         DeviceUpdate::Removed(device) => {
+    ///             println!("{device} has gone offline");
+    ///         }
+    ///     }
+    /// }
+    ///     # Ok(())
+    /// # }
+    /// ```
     pub fn devices(&self) -> impl Stream<Item = DeviceUpdate> {
         let current = self.current_devices();
         let rx = self.device_update.subscribe();
@@ -124,8 +205,36 @@ impl TasmotaClient {
     }
 
     /// Send a command that expect a single reply message
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use std::pin::pin;
+    /// # use tasmota_mqtt_client::{DeviceUpdate, Result, TasmotaClient};
+    /// # use tokio::join;
+    /// # use tokio_stream::StreamExt;
+    /// # use serde::Deserialize;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    ///     # let client = TasmotaClient::connect(
+    ///     #     "mqtt.example.com",
+    ///     #     1883,
+    ///     #     Some(("mqtt_username", "mqtt_password")),
+    ///     # ).await?;
+    /// // let client: TasmotaClient = ...
+    /// #[derive(Deserialize)]
+    /// struct PowerResponse {
+    ///     #[serde(rename = "POWER")]
+    ///     power: String,
+    /// }
+    /// let response: PowerResponse = client.command("tasmota_device", "Power", "Off").await?;
+    /// println!("power: {}", response.power);
+    ///     # Ok(())
+    /// # }
+    /// ```
     #[tracing::instrument(skip(self))]
-    pub async fn command<T: DeserializeOwned + Debug>(
+    pub async fn command<T: DeserializeOwned>(
         &self,
         device: &str,
         command: &str,

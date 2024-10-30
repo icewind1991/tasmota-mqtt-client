@@ -1,6 +1,7 @@
-on: [push, pull_request]
-
-name: CI
+name: "CI"
+on:
+  pull_request:
+  push:
 
 jobs:
   checks:
@@ -13,4 +14,4 @@ jobs:
           name: ci
           instance: https://cache.icewind.me
           authToken: "${{ secrets.ATTIC_TOKEN }}"
-      - run: nix build .#checks
+      - run: nix flake check --keep-going

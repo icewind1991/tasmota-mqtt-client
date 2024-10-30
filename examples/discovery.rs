@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::pin::pin;
-use tasmota_mqtt_client::DeviceUpdate;
-pub use tasmota_mqtt_client::{Result, TasmotaClient};
+use tasmota_mqtt_client::{DeviceUpdate, Result, TasmotaClient};
 use tokio::join;
 use tokio_stream::StreamExt;
 
