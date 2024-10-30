@@ -17,7 +17,7 @@ pub struct MqttHelper {
 }
 
 impl MqttHelper {
-    pub fn connect(opts: MqttOptions) -> Result<Self> {
+    pub fn connect(opts: MqttOptions) -> Self {
         let (client, event_loop) = AsyncClient::new(opts, 10);
 
         let listeners = Arc::<Mutex<Vec<(String, Sender<_>)>>>::default();
@@ -55,7 +55,7 @@ impl MqttHelper {
             }
         });
 
-        Ok(Self { client, listeners })
+        Self { client, listeners }
     }
 
     pub async fn send<B: Serialize>(&self, topic: &str, body: &B) -> Result<()> {

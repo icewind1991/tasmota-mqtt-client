@@ -67,7 +67,12 @@ impl TasmotaClient {
         if let Some((username, password)) = credentials {
             mqtt_opts.set_credentials(username, password);
         }
-        let mqtt = MqttHelper::connect(mqtt_opts)?;
+        Self::from_mqtt_options(mqtt_opts).await
+    }
+
+    /// Connect to an MQTT server using an existing [`MqttOptions`].
+    pub async fn from_mqtt_options(options: MqttOptions) -> Result<Self> {
+        let mqtt = MqttHelper::connect(options);
 
         let mut lwt = mqtt.subscribe("tele/+/LWT".into()).await?;
 
