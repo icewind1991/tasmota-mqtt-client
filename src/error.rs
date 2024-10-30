@@ -5,11 +5,10 @@ use thiserror::Error;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("Error with mqtt transport: {0:#}")]
     Mqtt(MqttError),
-    #[error("Topic {0} doesn't follow expected format")]
-    MalformedTopic(String),
     #[error("Malformed json payload received: {0:#}")]
     JsonPayload(serde_json::Error),
     #[error(transparent)]
@@ -27,6 +26,7 @@ impl From<serde_json::Error> for Error {
 }
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum MqttError {
     #[error("transparent")]
     Client(ClientError),
@@ -55,6 +55,7 @@ impl From<ConnectionError> for Error {
 }
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DownloadError {
     #[error("Aborted")]
     DownloadAborted,
