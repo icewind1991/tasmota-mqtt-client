@@ -1,3 +1,5 @@
+# Moved to https://codeberg.org/icewind/tasmota-mqtt-client
+
 # tasmota-mqtt-client
 
 Rust library for interacting with tasmota devices over MQTT
